@@ -1,40 +1,24 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const app = express();
 const port = 3000;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-mongoose.connect('mongodb://localhost:27017/deineDatenbank', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+// Anstelle von Mongoose-Schema und Modell
+const reports = [];
 
-const reportSchema = new mongoose.Schema({
-  teamMember: String,
-  playerName: String,
-  date: String,
-  report: String,
-});
-
-const Report = mongoose.model('Report', reportSchema);
-
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
   const searchTerm = req.query.search || '';
-
-  let filteredReports = await Report.find();
-
-  if (searchTerm) {
-    filteredReports = await Report.find({
-      $or: [
-        { teamMember: { $regex: searchTerm, $options: 'i' } },
-        { playerName: { $regex: searchTerm, $options: 'i' } },
-        { date: { $regex: searchTerm, $options: 'i' } },
-        { report: { $regex: searchTerm, $options: 'i' } },
-      ],
-    });
-  }
+  const filteredReports = reports.filter(report => {
+    const searchRegex = new RegExp(searchTerm, 'i');
+    return (
+      searchRegex.test(report.teamMember) ||
+      searchRegex.test(report.playerName) ||
+      searchRegex.test(report.date) ||
+      searchRegex.test(report.report)
+    );
+  });
 
   let reportListHTML = `
     <h2>Berichte</h2>
@@ -44,102 +28,15 @@ app.get('/', async (req, res) => {
       <button type="submit">Suchen</button>
     </form>
     <a href="/create" class="to-create-button">Neuen Bericht erstellen</a>
-    <style>
-/* CSS für die Berichtsseite */
-
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
-}
-
-.container {
-    max-width: 800px;
-    margin: 50px auto;
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-label {
-    display: block;
-    margin-bottom: 8px;
-}
-
-input, textarea {
-    width: 100%;
-    padding: 8px;
-    margin-bottom: 16px;
-    box-sizing: border-box;
-}
-
-button {
-    background-color: #4caf50;
-    color: #fff;
-    padding: 10px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-button:hover {
-    background-color: #45a049;
-}
-
-</style>
     <ul>
   `;
 
   filteredReports.forEach(report => {
     reportListHTML += `
       <li>
-        <a href="/report/${report._id}">
+        <a href="/report/${report.id}">
           <strong>${report.teamMember}</strong> hat <strong>${report.playerName}</strong> am ${report.date} gebannt/gekickt: ${report.report}
         </a>
-        <style>
-/* CSS für die Berichtsakte-Seite */
-
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
-}
-
-.container {
-    max-width: 800px;
-    margin: 50px auto;
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-h2 {
-    color: #3498db;
-}
-
-h3 {
-    color: #333;
-}
-
-p {
-    color: #555;
-    line-height: 1.6;
-}
-
-a {
-    color: #3498db;
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-</style>
       </li>`;
   });
 
@@ -147,16 +44,25 @@ a:hover {
   res.send(reportListHTML);
 });
 
-app.post('/addReport', async (req, res) => {
+app.post('/addReport', (req, res) => {
   const { teamMember, playerName, date, report } = req.body;
-  const reportObject = new Report({ teamMember, playerName, date, report });
-  await reportObject.save();
+  const newReport = {
+    id: reports.length + 1, // Ersetze dies durch eine geeignete Methode zur Generierung von IDs
+    teamMember,
+    playerName,
+    date,
+    report,
+  };
+  reports.push(newReport);
   res.redirect('/');
 });
 
-app.get('/report/:id', async (req, res) => {
+app.get('/report/:id', (req, res) => {
   const id = req.params.id;
-  const report = await Report.findById(id);
+  const report = reports.find(report => report.id == id); // Achtung: Hier wird ein einfacher Vergleich durchgeführt, nicht für den Produktiveinsatz geeignet
+  if (!report) {
+    return res.status(404).send('Bericht nicht gefunden');
+  }
   const reportHTML = `
     <h2>Berichtsakte</h2>
     <link rel="stylesheet" type="text/css" href="/report-stylesheet.css">
@@ -170,88 +76,67 @@ app.get('/create', (req, res) => {
     <html>
       <head>
         <title>Ban/Kick Bericht erstellen</title>
-        <styles>
-        /* CSS hier einfügen */
-body {
-  <style>
-  /* CSS hier einfügen */
-  body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f4f4;
-  }
-  
-  .to-create-button {
-      background-color: #3498db;
-      color: #fff;
-      padding: 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-      margin-bottom: 10px;
-  }
-  
-  .to-create-button:hover {
-      background-color: #2980b9;
-  }
-  
-  ul {
-      list-style-type: none;
-      padding: 0;
-  }
-  
-  li {
-      border-bottom: 1px solid #ddd;
-      padding: 10px 0;
-  }
-  
-  a {
-      text-decoration: none;
-      color: #333;
-  }
-  
-  a:hover {
-      text-decoration: underline;
-  }
-  
-  /* Neue Stile für das Berichtsformular */
-  form {
-      max-width: 600px;
-      margin: 20px auto;
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  label {
-      display: block;
-      margin-bottom: 8px;
-  }
-  
-  input, textarea {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 16px;
-      box-sizing: border-box;
-  }
-  
-  button {
-      background-color: #4caf50;
-      color: #fff;
-      padding: 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-  }
-  
-  button:hover {
-      background-color: #45a049;
-  }
-  </style>
+        <style>
+          /* CSS hier einfügen */
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+          }
+
+          .to-create-button {
+            background-color: #3498db;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 10px;
+          }
+
+          .to-create-button:hover {
+            background-color: #2980b9;
+          }
+
+          /* Neue Stile für das Berichtsformular */
+          form {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+          }
+
+          label {
+            display: block;
+            margin-bottom: 8px;
+          }
+
+          input,
+          textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+          }
+
+          button {
+            background-color: #4caf50;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+          }
+
+          button:hover {
+            background-color: #45a049;
+          }
+        </style>
       </head>
       <body>
         <h2>Ban/Kick Bericht erstellen</h2>
