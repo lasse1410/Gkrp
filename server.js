@@ -5,7 +5,6 @@ const port = 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Anstelle von Mongoose-Schema und Modell
 const reports = [];
 
 app.get('/', (req, res) => {
@@ -47,7 +46,7 @@ app.get('/', (req, res) => {
 app.post('/addReport', (req, res) => {
   const { teamMember, playerName, date, report } = req.body;
   const newReport = {
-    id: reports.length + 1, // Ersetze dies durch eine geeignete Methode zur Generierung von IDs
+    id: generateUniqueId(),
     teamMember,
     playerName,
     date,
@@ -59,7 +58,7 @@ app.post('/addReport', (req, res) => {
 
 app.get('/report/:id', (req, res) => {
   const id = req.params.id;
-  const report = reports.find(report => report.id == id); // Achtung: Hier wird ein einfacher Vergleich durchgeführt, nicht für den Produktiveinsatz geeignet
+  const report = reports.find(report => report.id == id);
   if (!report) {
     return res.status(404).send('Bericht nicht gefunden');
   }
@@ -164,3 +163,8 @@ app.get('/create', (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
+
+function generateUniqueId() {
+  return '_' + Math.random().toString(36).substr(2, 9);
+}
+
